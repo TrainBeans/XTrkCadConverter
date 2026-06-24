@@ -33,14 +33,14 @@ _INSUNITS_TO_INCHES: dict = {
     7: 39370.1,     # Kilometers
     8: 1.0 / 25400000.0,  # Microinches – very rare
     9: 1.0 / 25400.0,     # Mils (thou)
-    10: 1.0093,             # Yards  (rough: 36 inches)
+    10: 36.0,              # Yards (1 yard = 36 inches)
     11: 1.0,               # Angstroms – treat as unitless
     12: 1.0,               # Nanometers – treat as unitless
     13: 1.0,               # Microns – treat as unitless
-    14: 1.0 / 25.4,        # Decimeters (same as 10 mm)
-    15: 3.93701,            # Decameters (10 m)
-    16: 393.701,            # Hectometers (100 m)
-    17: 39370.1,            # Gigameters
+    14: 3.93701,           # Decimeters (1 dm = 100 mm = 3.93701 inches)
+    15: 393.701,           # Decameters (10 m)
+    16: 3937.01,           # Hectometers (100 m)
+    17: 3.93701e10,        # Gigameters (1 Gm = 1e9 m)
     18: 1.0,               # Astronomical units – treat as unitless
     19: 1.0,               # Light years – treat as unitless
     20: 1.0,               # Parsecs – treat as unitless

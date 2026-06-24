@@ -3,11 +3,47 @@
 import pytest
 import os
 
-from xtrkcad_converter.dxf_reader import read_file
+from xtrkcad_converter.dxf_reader import _INSUNITS_TO_INCHES, read_file
 from xtrkcad_converter.entities import Arc, Circle, Line, Polyline, Text
 
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
+class TestInsunitsTable:
+    """Sanity-check the unit conversion constants."""
+
+    def test_inches(self):
+        assert _INSUNITS_TO_INCHES[1] == pytest.approx(1.0)
+
+    def test_feet(self):
+        assert _INSUNITS_TO_INCHES[2] == pytest.approx(12.0)
+
+    def test_millimeters(self):
+        # 1 mm → 1/25.4 inches
+        assert _INSUNITS_TO_INCHES[4] == pytest.approx(1.0 / 25.4, rel=1e-4)
+
+    def test_centimeters(self):
+        assert _INSUNITS_TO_INCHES[5] == pytest.approx(1.0 / 2.54, rel=1e-4)
+
+    def test_meters(self):
+        assert _INSUNITS_TO_INCHES[6] == pytest.approx(39.3701, rel=1e-4)
+
+    def test_yards(self):
+        # 1 yard = 36 inches exactly
+        assert _INSUNITS_TO_INCHES[10] == pytest.approx(36.0)
+
+    def test_decimeters(self):
+        # 1 dm = 100 mm = 3.93701 inches
+        assert _INSUNITS_TO_INCHES[14] == pytest.approx(3.93701, rel=1e-4)
+
+    def test_hectometers(self):
+        # 1 hm = 100 m = 3937.01 inches
+        assert _INSUNITS_TO_INCHES[16] == pytest.approx(3937.01, rel=1e-4)
+
+    def test_gigameters(self):
+        # 1 Gm = 1e9 m = 3.93701e10 inches
+        assert _INSUNITS_TO_INCHES[17] == pytest.approx(3.93701e10, rel=1e-4)
 
 
 class TestReadFileMissing:

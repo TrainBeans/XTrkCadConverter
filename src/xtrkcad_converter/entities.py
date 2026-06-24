@@ -9,7 +9,7 @@ from typing import List, Union
 
 @dataclass
 class Color:
-    """An RGB colour used on a drawing segment."""
+    """An RGB color used on a drawing segment."""
 
     r: int = 0
     g: int = 0
