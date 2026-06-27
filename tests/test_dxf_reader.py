@@ -98,8 +98,9 @@ class TestReadSimpleDxf:
         entities = read_file(str(path))
         arcs = [e for e in entities if isinstance(e, Arc)]
         assert len(arcs) == 1
-        assert arcs[0].cx == pytest.approx(0.0)
-        assert arcs[0].cy == pytest.approx(0.0)
+        # Arc at (0,0) radius=2 → bounding box min=(-2,-2) → translated to (2,2)
+        assert arcs[0].cx == pytest.approx(2.0)
+        assert arcs[0].cy == pytest.approx(2.0)
         assert arcs[0].radius == pytest.approx(2.0)
         # a0=0, a1=90 (verified by TestDxfArcToXtc)
         assert arcs[0].a0 == pytest.approx(0.0, abs=1e-4)
@@ -118,8 +119,9 @@ class TestReadSimpleDxf:
         entities = read_file(str(path))
         circles = [e for e in entities if isinstance(e, Circle)]
         assert len(circles) == 1
-        assert circles[0].cx == pytest.approx(3.0)
-        assert circles[0].cy == pytest.approx(4.0)
+        # Circle at (3,4) radius=1.5 → bounding box min=(1.5, 2.5) → translated to (1.5, 1.5)
+        assert circles[0].cx == pytest.approx(1.5)
+        assert circles[0].cy == pytest.approx(1.5)
         assert circles[0].radius == pytest.approx(1.5)
 
     def test_scale_mm_to_inches(self, tmp_path):
@@ -179,5 +181,51 @@ class TestReadSimpleDxf:
         texts = [e for e in entities if isinstance(e, Text)]
         assert len(texts) == 1
         assert texts[0].text == "Hello"
-        assert texts[0].x == pytest.approx(1.0)
-        assert texts[0].y == pytest.approx(2.0)
+        # Text at (1,2) → origin translated to lower-left → x=0.0, y=0.0
+        assert texts[0].x == pytest.approx(0.0)
+        assert texts[0].y == pytest.approx(0.0)
+
+
+class TestTargetHeight:
+    """Tests for the target_height scaling feature."""
+
+    def _make_line_dxf(self, tmp_path, x1, y1, x2, y2):
+        import ezdxf
+
+        doc = ezdxf.new(dxfversion="R2010")
+        doc.header["$INSUNITS"] = 1  # inches
+        msp = doc.modelspace()
+        msp.add_line((x1, y1, 0), (x2, y2, 0))
+        path = tmp_path / "line.dxf"
+        doc.saveas(str(path))
+        return path
+
+    def test_height_scales_y_extent(self, tmp_path):
+        # Line from (0,0) to (10,5) → height=5; request height=10 → scale×2
+        path = self._make_line_dxf(tmp_path, 0, 0, 10, 5)
+        entities = read_file(str(path), target_height=10.0)
+        lines = [e for e in entities if isinstance(e, Line)]
+        assert lines[0].y2 == pytest.approx(10.0)
+
+    def test_height_scales_x_proportionally(self, tmp_path):
+        # Same drawing: width=10 → after ×2 → width=20
+        path = self._make_line_dxf(tmp_path, 0, 0, 10, 5)
+        entities = read_file(str(path), target_height=10.0)
+        lines = [e for e in entities if isinstance(e, Line)]
+        assert lines[0].x2 == pytest.approx(20.0)
+
+    def test_height_none_leaves_drawing_unchanged(self, tmp_path):
+        path = self._make_line_dxf(tmp_path, 0, 0, 10, 5)
+        entities = read_file(str(path), target_height=None)
+        lines = [e for e in entities if isinstance(e, Line)]
+        assert lines[0].y2 == pytest.approx(5.0)
+        assert lines[0].x2 == pytest.approx(10.0)
+
+    def test_height_already_correct_factor_is_one(self, tmp_path):
+        path = self._make_line_dxf(tmp_path, 0, 0, 4, 3)
+        entities = read_file(str(path), target_height=3.0)
+        lines = [e for e in entities if isinstance(e, Line)]
+        assert lines[0].y2 == pytest.approx(3.0)
+        assert lines[0].x2 == pytest.approx(4.0)
+
+

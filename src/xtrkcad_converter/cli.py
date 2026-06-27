@@ -47,6 +47,16 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--height",
+        metavar="INCHES",
+        type=float,
+        default=None,
+        help=(
+            "Scale the drawing uniformly so its total height equals this value "
+            "in inches.  Applied after unit conversion."
+        ),
+    )
+    parser.add_argument(
         "--layer",
         metavar="N",
         type=int,
@@ -94,7 +104,11 @@ def main(argv=None) -> int:
         output_path = Path(args.output)
 
     try:
-        entities = read_file(str(input_path), scale_override=args.scale)
+        entities = read_file(
+            str(input_path),
+            scale_override=args.scale,
+            target_height=args.height,
+        )
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

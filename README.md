@@ -43,6 +43,7 @@ xtrkcad-converter INPUT [OUTPUT] [OPTIONS]
 | `INPUT` | Path to the input `.dxf` file |
 | `OUTPUT` | Output `.xtc` path (default: same name as input with `.xtc` extension) |
 | `--scale FACTOR` | Override the coordinate scale factor (input units → inches).  E.g. `--scale 0.03937` for millimetres |
+| `--height INCHES` | Scale the drawing uniformly so its total height equals this value in inches (applied after unit conversion) |
 | `--layer N` | XTrkCad layer number for all output objects (default: `0`) |
 | `--grouped` | Put all entities in a single `DRAW` block instead of one per entity |
 | `--verbose` / `-v` | Enable debug logging |

@@ -329,7 +329,87 @@ def _extract_hatch(entity, scale: float, color: Color) -> List[DrawingEntity]:
     return result
 
 
-def read_file(path: str, scale_override: Optional[float] = None) -> List[DrawingEntity]:
+def _compute_min_bounds(entities: List[DrawingEntity]):
+    """Return (min_x, min_y) across all entities, or (0, 0) if the list is empty."""
+    xs: List[float] = []
+    ys: List[float] = []
+
+    for e in entities:
+        if isinstance(e, Line):
+            xs += [e.x1, e.x2]
+            ys += [e.y1, e.y2]
+        elif isinstance(e, (Arc, Circle, FilledCircle)):
+            xs += [e.cx - e.radius, e.cx + e.radius]
+            ys += [e.cy - e.radius, e.cy + e.radius]
+        elif isinstance(e, Polyline):
+            for pt in e.points:
+                xs.append(pt.x)
+                ys.append(pt.y)
+        elif isinstance(e, Text):
+            xs.append(e.x)
+            ys.append(e.y)
+
+    if not xs:
+        return 0.0, 0.0
+    return min(xs), min(ys)
+
+
+def _translate_entities(
+    entities: List[DrawingEntity], dx: float, dy: float
+) -> List[DrawingEntity]:
+    """Shift every coordinate in *entities* by (dx, dy) in-place and return the list."""
+    for e in entities:
+        if isinstance(e, Line):
+            e.x1 += dx
+            e.y1 += dy
+            e.x2 += dx
+            e.y2 += dy
+        elif isinstance(e, (Arc, Circle, FilledCircle)):
+            e.cx += dx
+            e.cy += dy
+        elif isinstance(e, Polyline):
+            for pt in e.points:
+                pt.x += dx
+                pt.y += dy
+        elif isinstance(e, Text):
+            e.x += dx
+            e.y += dy
+    return entities
+
+
+def _scale_entities(
+    entities: List[DrawingEntity], factor: float
+) -> List[DrawingEntity]:
+    """Uniformly scale every coordinate and size in *entities* in-place and return the list."""
+    for e in entities:
+        if isinstance(e, Line):
+            e.x1 *= factor
+            e.y1 *= factor
+            e.x2 *= factor
+            e.y2 *= factor
+            e.width *= factor
+        elif isinstance(e, (Arc, Circle, FilledCircle)):
+            e.cx *= factor
+            e.cy *= factor
+            e.radius *= factor
+            e.width *= factor
+        elif isinstance(e, Polyline):
+            for pt in e.points:
+                pt.x *= factor
+                pt.y *= factor
+            e.width *= factor
+        elif isinstance(e, Text):
+            e.x *= factor
+            e.y *= factor
+            e.font_size *= factor
+    return entities
+
+
+def read_file(
+    path: str,
+    scale_override: Optional[float] = None,
+    target_height: Optional[float] = None,
+) -> List[DrawingEntity]:
     """Read a DXF or DWG file and return a list of drawing entities.
 
     Parameters
@@ -340,6 +420,10 @@ def read_file(path: str, scale_override: Optional[float] = None) -> List[Drawing
         If given, multiply all coordinates by this factor to convert to
         inches.  When ``None`` (default) the scale is derived from the
         ``$INSUNITS`` DXF header variable.
+    target_height:
+        If given, uniformly scale the drawing (after unit conversion and
+        origin translation) so that its total height equals this value in
+        inches.  Ignored when the drawing has zero height.
 
     Returns
     -------
@@ -393,4 +477,40 @@ def read_file(path: str, scale_override: Optional[float] = None) -> List[Drawing
 
     layer_map = _build_layer_color_map(doc)
     msp = doc.modelspace()
-    return _process_modelspace(msp, scale, layer_map)
+    entities = _process_modelspace(msp, scale, layer_map)
+
+    # Translate so that the lower-left corner of the drawing is at the origin.
+    min_x, min_y = _compute_min_bounds(entities)
+    logger.debug("Translating origin by (-%.6f, -%.6f)", min_x, min_y)
+    _translate_entities(entities, -min_x, -min_y)
+
+    # Optionally scale to a target height.
+    if target_height is not None:
+        _, actual_height = _compute_min_bounds(
+            []
+        )  # reset; recompute max after translation
+        # After translation min_y == 0, so height == max_y.
+        # Reuse _compute_min_bounds on the negated problem: max_y is what we need.
+        # Compute it directly from the translated entities.
+        all_ys: List[float] = []
+        for e in entities:
+            if isinstance(e, Line):
+                all_ys += [e.y1, e.y2]
+            elif isinstance(e, (Arc, Circle, FilledCircle)):
+                all_ys.append(e.cy + e.radius)
+            elif isinstance(e, Polyline):
+                all_ys.extend(pt.y for pt in e.points)
+            elif isinstance(e, Text):
+                all_ys.append(e.y)
+        actual_height = max(all_ys) if all_ys else 0.0
+        if actual_height > 0.0:
+            height_scale = target_height / actual_height
+            logger.debug(
+                "Scaling to target height %.6f in (actual %.6f in, factor %.6f)",
+                target_height, actual_height, height_scale,
+            )
+            _scale_entities(entities, height_scale)
+        else:
+            logger.warning("Drawing has zero height; --height scaling skipped.")
+
+    return entities

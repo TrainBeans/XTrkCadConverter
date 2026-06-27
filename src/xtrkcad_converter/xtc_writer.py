@@ -51,7 +51,7 @@ from .entities import (
 )
 
 # XTrkCad file format version written by this converter
-_FORMAT_VERSION = 19
+_FORMAT_VERSION = 12
 
 # Segment type characters (from XTrkCad track.h)
 _SEG_STRLIN = "L"
@@ -64,6 +64,29 @@ _SEG_TEXT = "Z"
 # Poly sub-types
 _POLYTYPE_POLYLINE = 1
 _POLYTYPE_FREEFORM = 0
+
+
+def _compute_max_bounds(entities) -> tuple:
+    """Return (max_x, max_y) across all entities; falls back to (0, 0) when empty."""
+    xs: list = []
+    ys: list = []
+    for e in entities:
+        if isinstance(e, Line):
+            xs += [e.x1, e.x2]
+            ys += [e.y1, e.y2]
+        elif isinstance(e, (Arc, Circle, FilledCircle)):
+            xs.append(e.cx + e.radius)
+            ys.append(e.cy + e.radius)
+        elif isinstance(e, Polyline):
+            for pt in e.points:
+                xs.append(pt.x)
+                ys.append(pt.y)
+        elif isinstance(e, Text):
+            xs.append(e.x)
+            ys.append(e.y)
+    if not xs:
+        return 0.0, 0.0
+    return max(xs), max(ys)
 
 
 def _escape_text(text: str) -> str:
@@ -183,6 +206,8 @@ def write_xtc(
 
     def _write_to(f) -> None:
         f.write(f"VERSION {_FORMAT_VERSION}\n")
+        width, height = _compute_max_bounds(entity_list)
+        f.write(f"ROOMSIZE {width:.6f} x {height:.6f}\n")
 
         if one_entity_per_draw:
             for idx, entity in enumerate(entity_list, start=1):

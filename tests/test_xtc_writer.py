@@ -19,11 +19,21 @@ from xtrkcad_converter.xtc_writer import entities_to_string, write_xtc
 class TestVersionHeader:
     def test_version_line_present(self):
         output = entities_to_string([])
-        assert output.startswith("VERSION 19\n")
+        assert output.startswith("VERSION 12\n")
 
     def test_empty_entities_only_header(self):
         output = entities_to_string([])
-        assert output == "VERSION 19\n"
+        assert output == "VERSION 12\nROOMSIZE 0.000000 x 0.000000\n"
+
+    def test_roomsize_matches_entity_extents(self):
+        # Line from (0,0) to (10, 5) → ROOMSIZE should be 10 x 5
+        output = entities_to_string([Line(0.0, 0.0, 10.0, 5.0)])
+        assert "ROOMSIZE 10.000000 x 5.000000\n" in output
+
+    def test_roomsize_uses_circle_extent(self):
+        # Circle cx=3, cy=4, radius=1 → max_x=4, max_y=5
+        output = entities_to_string([Circle(cx=3.0, cy=4.0, radius=1.0)])
+        assert "ROOMSIZE 4.000000 x 5.000000\n" in output
 
 
 class TestWriteLine:
@@ -143,13 +153,14 @@ class TestWriteToFile:
         out = tmp_path / "test.xtc"
         write_xtc([Line(0.0, 0.0, 1.0, 1.0)], out)
         content = out.read_text()
-        assert content.startswith("VERSION 19\n")
+        assert content.startswith("VERSION 12\n")
+        assert "ROOMSIZE " in content
         assert "\tL3 " in content
 
     def test_write_to_stream(self):
         buf = io.StringIO()
         write_xtc([Line(0.0, 0.0, 1.0, 1.0)], buf)
-        assert buf.getvalue().startswith("VERSION 19\n")
+        assert buf.getvalue().startswith("VERSION 12\n")
 
     def test_unsupported_entity_raises(self):
         class Unknown:

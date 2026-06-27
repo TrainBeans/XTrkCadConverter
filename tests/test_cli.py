@@ -34,7 +34,8 @@ class TestCLI:
         assert result == 0
         assert out_path.exists()
         content = out_path.read_text()
-        assert content.startswith("VERSION 19\n")
+        assert content.startswith("VERSION 12\n")
+        assert "ROOMSIZE " in content
         assert "\tL3 " in content
 
     def test_default_output_path(self, tmp_path):
@@ -88,3 +89,22 @@ class TestCLI:
         fake_dwg.write_bytes(b"AC1015\x00" * 10)
         result = main([str(fake_dwg)])
         assert result == 1
+
+    def test_height_flag_scales_drawing(self, tmp_path):
+        import ezdxf
+
+        # Line from (0,0) to (10,5) in inches → request height=10 → scale×2
+        doc = ezdxf.new(dxfversion="R2010")
+        doc.header["$INSUNITS"] = 1
+        msp = doc.modelspace()
+        msp.add_line((0, 0, 0), (10, 5, 0))
+        in_path = tmp_path / "input.dxf"
+        doc.saveas(str(in_path))
+
+        out_path = tmp_path / "out.xtc"
+        result = main([str(in_path), str(out_path), "--height", "10"])
+        assert result == 0
+        content = out_path.read_text()
+        # ROOMSIZE should now be 20 × 10
+        assert "ROOMSIZE 20.000000 x 10.000000\n" in content
+
